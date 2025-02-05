@@ -1,54 +1,57 @@
-from sqlalchemy.orm import validates
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy_serializer import SerializerMixin
+from sqlalchemy.orm import validates
+from sqlalchemy.exc import IntegrityError
+
 from config import db, bcrypt
 
 class User(db.Model, SerializerMixin):
     __tablename__ = 'users'
 
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(150), unique=True, nullable=False)
-    _password_hash = db.Column(db.String(255), nullable=False)
-    image_url = db.Column(db.String(255))
-    bio = db.Column(db.String(500))
+    username = db.Column(db.String, unique=True, nullable=False)
+    _password_hash = db.Column(db.String)
+    image_url = db.Column(db.String)
+    bio = db.Column(db.String)
 
-    # One-to-many relationship: User has many recipes
-    recipes = db.relationship('Recipe', backref='user', lazy=True)
+    recipes = db.relationship('Recipe', back_populates = 'user')
+    serialize_rules = ('-recipes.user', '-recipes.user_id')
 
-    # Validates username length
-    @validates('username')
-    def validate_username(self, key, username):
-        if len(username) < 3:
-            raise ValueError("Username must be at least 3 characters long.")
-        return username
-
-    # Password hashing
     @hybrid_property
-    def password(self):
-        raise AttributeError("Password is not accessible directly")
+    def password_hash(self):
+        # return self._password_hash
+        raise AttributeError('Password_hash should not be accessed')
 
-    @password.setter
-    def password(self, password):
-        self._password_hash = bcrypt.generate_password_hash(password).decode('utf-8')
+    @password_hash.setter
+    def password_hash(self, new_password):
+        hashed = bcrypt.generate_password_hash(new_password.encode('utf-8'))
+        self._password_hash = hashed.decode('utf-8')
 
-    # Password verification
-    def check_password(self, password):
+    def authenticate(self, password):
         return bcrypt.check_password_hash(self._password_hash, password)
+
 
 class Recipe(db.Model, SerializerMixin):
     __tablename__ = 'recipes'
+    
+    id = db.Column(db.Integer, primary_key=True) 
+    title = db.Column(db.String, nullable=False)
+    instructions = db.Column(db.String)
+    # instructions = db.Column(db.String, db.CheckConstraint('LENGTH(instructions) > 50'))
+    minutes_to_complete = db.Column(db.Integer) 
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
 
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String, nullable=False, unique=True)
-    instructions = db.Column(db.String, nullable=False)
-    minutes_to_complete = db.Column(db.Integer, nullable=False)
+    user = db.relationship('User', back_populates = 'recipes')
+    serialize_rules = ('-user.recipes',)
+    __table_args__ = (db.CheckConstraint('LENGTH(instructions) > 50'),)
+    # @validates('instructions')
+    # def valid_instructions(self, key, value):
+    #     if len(value) < 50:
+    #         raise ValueError('Instructions must be more than 50 characters.')
+    #     return value
 
-    # Foreign key to link Recipe to User
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-
-    # Validates instructions length
-    @validates('instructions')
-    def validate_instructions(self, key, value):
-        if len(value) < 50:
-            raise ValueError('Instructions must be at least 50 characters long.')
+    @validates('title')
+    def valid_title(self, key, value):
+        if not value:
+            raise IntegrityError('Title must be present.')
         return value

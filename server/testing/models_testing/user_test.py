@@ -1,5 +1,6 @@
 from sqlalchemy.exc import IntegrityError
 import pytest
+
 from app import app
 from models import db, User, Recipe
 
@@ -28,17 +29,17 @@ class TestUser:
                     """ named her the seventh-greatest female screen legend """ + \
                     """of Classic Hollywood cinema."""
             )
-            # Setting password using the setter
-            user.password = "whosafraidofvirginiawoolf"
+
+            user.password_hash = "whosafraidofvirginiawoolf"
             
             db.session.add(user)
             db.session.commit()
 
             created_user = User.query.filter(User.username == "Liz").first()
 
-            assert created_user.username == "Liz"
-            assert created_user.image_url == "https://prod-images.tcm.com/Master-Profile-Images/ElizabethTaylor.jpg"
-            assert created_user.bio == \
+            assert(created_user.username == "Liz")
+            assert(created_user.image_url == "https://prod-images.tcm.com/Master-Profile-Images/ElizabethTaylor.jpg")
+            assert(created_user.bio == \
                 """Dame Elizabeth Rosemond Taylor DBE (February 27, 1932""" + \
                 """ - March 23, 2011) was a British-American actress. """ + \
                 """She began her career as a child actress in the early""" + \
@@ -48,9 +49,8 @@ class TestUser:
                 """1960s, remaining a well-known public figure for the """ + \
                 """rest of her life. In 1999, the American Film Institute""" + \
                 """ named her the seventh-greatest female screen legend """ + \
-                """of Classic Hollywood cinema."""
-
-            # Ensuring the password cannot be accessed directly
+                """of Classic Hollywood cinema.""")
+            
             with pytest.raises(AttributeError):
                 created_user.password_hash
 
@@ -68,7 +68,7 @@ class TestUser:
                 db.session.commit()
 
     def test_requires_unique_username(self):
-        '''requires each record to have a unique username.'''
+        '''requires each record to have a username.'''
 
         with app.app_context():
 
@@ -83,53 +83,49 @@ class TestUser:
                 db.session.commit()
 
     def test_has_list_of_recipes(self):
-        '''has records with lists of recipes attached.'''
+        '''has records with lists of recipes records attached.'''
 
-    with app.app_context():
+        with app.app_context():
 
-        # Clear existing data
-        User.query.delete()
-        Recipe.query.delete()
-        db.session.commit()
+            User.query.delete()
+            db.session.commit()
 
-        # Create a user with a valid password hash
-        user = User(
-            username="Prabhdip",
-            _password_hash="hashedpassword",  # Provide a valid password hash
-            image_url="http://example.com/image.jpg",
-            bio="Test bio"
-        )
+            user = User(username="Prabhdip")
 
-        # Create recipes
-        recipe_1 = Recipe(
-            title="Delicious Shed Ham",
-            instructions="""Or kind rest bred with am shed then. In""" + \
-                """ raptures building an bringing be. Elderly is detract""" + \
-                """ tedious assured private so to visited. Do travelling""" + \
-                """ companions contrasted it. Mistress strongly remember""" + \
-                """ up to. Ham him compass you proceed calling detract.""" + \
-                """ Better of always missed we person mr. September""" + \
-                """ smallness northward situation few her certainty""" + \
-                """ something.""",
-            minutes_to_complete=60,
-            user_id=user.id  # Associate the recipe with the user
-        )
-        recipe_2 = Recipe(
-            title="Hasty Party Ham",
-            instructions="""As am hastily invited settled at limited""" + \
-                         """ civilly fortune me. Really spring in extent""" + \
-                         """ an by. Judge but built gay party world. Of""" + \
-                         """ so am he remember although required. Bachelor""" + \
-                         """ unpacked be advanced at. Confined in declared""" + \
-                         """ marianne is vicinity.""",
-            minutes_to_complete=30,
-            user_id=user.id  # Associate the recipe with the user
-        )
+            recipe_1 = Recipe(
+                title="Delicious Shed Ham",
+                instructions="""Or kind rest bred with am shed then. In""" + \
+                    """ raptures building an bringing be. Elderly is detract""" + \
+                    """ tedious assured private so to visited. Do travelling""" + \
+                    """ companions contrasted it. Mistress strongly remember""" + \
+                    """ up to. Ham him compass you proceed calling detract.""" + \
+                    """ Better of always missed we person mr. September""" + \
+                    """ smallness northward situation few her certainty""" + \
+                    """ something.""",
+                minutes_to_complete=60,
+                )
+            recipe_2 = Recipe(
+                title="Hasty Party Ham",
+                instructions="""As am hastily invited settled at limited""" + \
+                             """ civilly fortune me. Really spring in extent""" + \
+                             """ an by. Judge but built gay party world. Of""" + \
+                             """ so am he remember although required. Bachelor""" + \
+                             """ unpacked be advanced at. Confined in declared""" + \
+                             """ marianne is vicinity.""",
+                minutes_to_complete=30,
+                )
 
-        # Add recipes to the user
-        user.recipes.append(recipe_1)
-        user.recipes.append(recipe_2)
+            user.recipes.append(recipe_1)
+            user.recipes.append(recipe_2)
 
-        # Commit to the database
-        db.session.add_all([user, recipe_1, recipe_2])
-        db.session.commit()
+            db.session.add_all([user, recipe_1, recipe_2])
+            db.session.commit()
+
+            # check that all were created in db
+            assert(user.id)
+            assert(recipe_1.id)
+            assert(recipe_2.id)
+
+            # check that recipes were saved to user
+            assert(recipe_1 in user.recipes)
+            assert(recipe_2 in user.recipes)
